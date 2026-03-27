@@ -30,6 +30,32 @@ body {
   min-height: 0;
 }
 
+.storage-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.storage-tab {
+  border: 1px solid #cfcfcf;
+  border-radius: 999px;
+  background: #fff;
+  color: #1f1f1f;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.storage-tab:hover {
+  background: #f3f3f3;
+}
+
+.storage-tab.is-active {
+  background: #e8f0ff;
+  border-color: #9ab7ff;
+  color: #153a75;
+}
+
 /** Custom Sidebar Styling **/
 .SideNav {
   list-style-type: none;

@@ -83,8 +83,15 @@ function toCellText (value) {
   return String(value)
 }
 
+const STORAGE_TABS = {
+  database: 'database',
+  state: 'state',
+  files: 'files'
+}
+
 function DatabaseExplorer (props) {
   const explorerActionUrl = useMemo(() => getExplorerActionUrl(), [])
+  const [activeTab, setActiveTab] = useState(STORAGE_TABS.database)
   const [collection, setCollection] = useState(null)
   const [collections, setCollections] = useState([])
   const [queryInput, setQueryInput] = useState(DEFAULT_QUERY)
@@ -95,11 +102,25 @@ function DatabaseExplorer (props) {
   const [loading, setLoading] = useState(false)
   const [loadingCollections, setLoadingCollections] = useState(false)
   const [documents, setDocuments] = useState([])
-  const [resultCount, setResultCount] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
   const [status, setStatus] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(null)
   const [selectedField, setSelectedField] = useState(null)
+  const [stateKeys, setStateKeys] = useState([])
+  const [stateMatch, setStateMatch] = useState('*')
+  const [stateKey, setStateKey] = useState('')
+  const [stateValue, setStateValue] = useState('')
+  const [stateLoading, setStateLoading] = useState(false)
+  const [stateStatus, setStateStatus] = useState('Ready.')
+  const [stateError, setStateError] = useState('')
+  const [stateValueMeta, setStateValueMeta] = useState(null)
+  const [filesPrefix, setFilesPrefix] = useState('/')
+  const [filesItems, setFilesItems] = useState([])
+  const [filesPath, setFilesPath] = useState('')
+  const [filesDetails, setFilesDetails] = useState(null)
+  const [filesLoading, setFilesLoading] = useState(false)
+  const [filesStatus, setFilesStatus] = useState('Ready.')
+  const [filesError, setFilesError] = useState('')
   const collectionItems = useMemo(() => collections.map((name) => ({ id: name, name })), [collections])
   const columns = useMemo(() => getColumns(documents), [documents])
   const selectedDoc = selectedIndex !== null ? documents[selectedIndex] : null
@@ -116,10 +137,32 @@ function DatabaseExplorer (props) {
     loadCollections()
   }, [])
 
+  useEffect(() => {
+    if (activeTab === STORAGE_TABS.state) {
+      loadStateKeys()
+    }
+    if (activeTab === STORAGE_TABS.files) {
+      loadFilesList()
+    }
+  }, [activeTab])
+
   return (
     <div className='db-page'>
-      <Heading level={1} UNSAFE_style={{ color: '#1a1a1a', marginBottom: '10px' }}>Database Explorer</Heading>
-      <div className='db-explorer-layout'>
+      <Heading level={1} UNSAFE_style={{ color: '#1a1a1a', marginBottom: '10px' }}>Storage Explorer</Heading>
+      <div className='storage-tabs'>
+        <button type='button' className={`storage-tab ${activeTab === STORAGE_TABS.database ? 'is-active' : ''}`} onClick={() => setActiveTab(STORAGE_TABS.database)}>
+          Database
+        </button>
+        <button type='button' className={`storage-tab ${activeTab === STORAGE_TABS.state ? 'is-active' : ''}`} onClick={() => setActiveTab(STORAGE_TABS.state)}>
+          State
+        </button>
+        <button type='button' className={`storage-tab ${activeTab === STORAGE_TABS.files ? 'is-active' : ''}`} onClick={() => setActiveTab(STORAGE_TABS.files)}>
+          Files
+        </button>
+      </div>
+
+      {activeTab === STORAGE_TABS.database && (
+        <div className='db-explorer-layout'>
         <div className='db-explorer-sidebar'>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
             <Text UNSAFE_style={{ fontWeight: 600 }}>Collections</Text>
@@ -344,7 +387,187 @@ function DatabaseExplorer (props) {
               : <Text>No documents loaded. Click Find to fetch data.</Text>}
           </div>
         </div>
-      </div>
+        </div>
+      )}
+
+      {activeTab === STORAGE_TABS.state && (
+        <div className='db-explorer-layout'>
+          <div className='db-explorer-sidebar'>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <Text UNSAFE_style={{ fontWeight: 600 }}>Keys</Text>
+              <Button variant='secondary' fillStyle='outline' onPress={loadStateKeys} isDisabled={!explorerActionUrl || stateLoading}>
+                Refresh
+              </Button>
+            </div>
+            <TextField
+              label='Match'
+              value={stateMatch}
+              onChange={setStateMatch}
+              placeholder='*'
+              UNSAFE_style={{ marginBottom: '8px' }}
+            />
+            <div className='db-collections-list'>
+              <ListView
+                aria-label='State Keys'
+                items={stateKeys.map((key) => ({ id: key, key }))}
+                selectedKeys={stateKey ? [stateKey] : []}
+                selectionMode='single'
+                onSelectionChange={(keys) => {
+                  if (keys === 'all') {
+                    return
+                  }
+                  const values = Array.from(keys)
+                  const nextKey = values[0] ? String(values[0]) : ''
+                  setStateKey(nextKey)
+                  if (nextKey) {
+                    getStateValue(nextKey)
+                  }
+                }}
+              >
+                {(item) => <ListViewItem id={item.id}>{item.key}</ListViewItem>}
+              </ListView>
+            </div>
+          </div>
+
+          <div className='db-explorer-content'>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'end' }}>
+              <TextField
+                label='Key'
+                value={stateKey}
+                onChange={setStateKey}
+                placeholder='Enter key'
+                UNSAFE_style={{ width: '50%' }}
+              />
+              <Button variant='secondary' fillStyle='outline' onPress={() => getStateValue(stateKey)} isDisabled={!stateKey.trim() || stateLoading}>
+                Get
+              </Button>
+              {stateLoading && <ProgressCircle aria-label='state-loading' isIndeterminate />}
+            </div>
+
+            <TextField
+              label='Value'
+              value={stateValue}
+              isReadOnly
+              placeholder='Select a key and click Get'
+              description='Read-only view of state value.'
+              UNSAFE_style={{ marginBottom: '10px' }}
+            />
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+              <Button
+                variant='secondary'
+                fillStyle='outline'
+                onPress={() => {
+                  setStateValue('')
+                  setStateValueMeta(null)
+                  setStateError('')
+                  setStateStatus('Ready.')
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+
+            <div className={`db-query-status ${stateError ? 'is-error' : 'is-info'}`}>
+              {stateError
+                ? <Text UNSAFE_style={{ fontSize: '12px' }}>{stateError}</Text>
+                : <Text UNSAFE_style={{ fontSize: '12px' }}>{stateStatus}</Text>}
+            </div>
+
+            <div className='db-results-wrap has-data'>
+              <div className='db-details' style={{ height: '100%' }}>
+                <div className='db-details-header'>
+                  <Text UNSAFE_style={{ fontWeight: 600 }}>Key details</Text>
+                </div>
+                <pre className='db-details-json'>
+                  {formatDoc({
+                    key: stateKey || null,
+                    expiration: stateValueMeta?.expiration || null,
+                    exists: stateValueMeta?.exists ?? null,
+                    value: stateValue
+                  })}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === STORAGE_TABS.files && (
+        <div className='db-explorer-layout'>
+          <div className='db-explorer-sidebar'>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <Text UNSAFE_style={{ fontWeight: 600 }}>Files</Text>
+              <Button variant='secondary' fillStyle='outline' onPress={loadFilesList} isDisabled={filesLoading}>
+                Refresh
+              </Button>
+            </div>
+            <TextField
+              label='Prefix'
+              value={filesPrefix}
+              onChange={setFilesPrefix}
+              placeholder='/'
+              UNSAFE_style={{ marginBottom: '8px' }}
+            />
+            <Button variant='secondary' fillStyle='outline' onPress={loadFilesList} isDisabled={filesLoading} UNSAFE_style={{ marginBottom: '8px' }}>
+              List
+            </Button>
+            <div className='db-collections-list'>
+              <ListView
+                aria-label='Files'
+                items={filesItems.map((item) => ({ id: item.name, name: item.name }))}
+                selectedKeys={filesPath ? [filesPath] : []}
+                selectionMode='single'
+                onSelectionChange={(keys) => {
+                  if (keys === 'all') {
+                    return
+                  }
+                  const values = Array.from(keys)
+                  const nextPath = values[0] ? String(values[0]) : ''
+                  setFilesPath(nextPath)
+                  if (nextPath) {
+                    loadFileDetails(nextPath)
+                  }
+                }}
+              >
+                {(item) => <ListViewItem id={item.id}>{item.name}</ListViewItem>}
+              </ListView>
+            </div>
+          </div>
+
+          <div className='db-explorer-content'>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'end' }}>
+              <TextField
+                label='Path'
+                value={filesPath}
+                onChange={setFilesPath}
+                placeholder='public/my-file.txt'
+                UNSAFE_style={{ width: '60%' }}
+              />
+              <Button variant='secondary' fillStyle='outline' onPress={() => loadFileDetails(filesPath)} isDisabled={!filesPath.trim() || filesLoading}>
+                Get metadata
+              </Button>
+              {filesLoading && <ProgressCircle aria-label='files-loading' isIndeterminate />}
+            </div>
+
+            <div className={`db-query-status ${filesError ? 'is-error' : 'is-info'}`}>
+              {filesError
+                ? <Text UNSAFE_style={{ fontSize: '12px' }}>{filesError}</Text>
+                : <Text UNSAFE_style={{ fontSize: '12px' }}>{filesStatus}</Text>}
+            </div>
+
+            <div className='db-results-wrap has-data'>
+              <div className='db-details' style={{ height: '100%' }}>
+                <div className='db-details-header'>
+                  <Text UNSAFE_style={{ fontWeight: 600 }}>File details</Text>
+                </div>
+                <pre className='db-details-json'>
+                  {formatDoc(filesDetails || { path: filesPath || null })}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
@@ -367,6 +590,7 @@ function DatabaseExplorer (props) {
     setStatus('Running query…')
     const params = {
       collection: collection.trim(),
+      operation: 'db.find',
       query: normalized
     }
 
@@ -382,7 +606,6 @@ function DatabaseExplorer (props) {
       const response = await actionWebInvoke(explorerActionUrl, headers, params)
       const docs = response?.body?.documents || response?.documents || []
       setDocuments(Array.isArray(docs) ? docs : [])
-      setResultCount(response?.body?.count || response?.count || 0)
       setTotalCount(response?.body?.totalCount || response?.totalCount || 0)
       setQueryInput(JSON.stringify(normalized))
       setStatus('Query completed.')
@@ -391,7 +614,6 @@ function DatabaseExplorer (props) {
     } catch (e) {
       setError(e.message || 'Query failed.')
       setStatus('')
-      setResultCount(0)
       setTotalCount(0)
       setSelectedIndex(null)
       setSelectedField(null)
@@ -443,7 +665,7 @@ function DatabaseExplorer (props) {
     }
     setLoadingCollections(true)
     try {
-      const response = await actionWebInvoke(explorerActionUrl, {}, { operation: 'listCollections' })
+      const response = await actionWebInvoke(explorerActionUrl, {}, { operation: 'db.listCollections' })
       const names = response?.body?.collections || response?.collections || []
       setCollections(Array.isArray(names) ? names : [])
       if (Array.isArray(names) && names.length > 0 && !collection) {
@@ -455,6 +677,117 @@ function DatabaseExplorer (props) {
       setLoadingCollections(false)
     }
   }
+
+  async function loadStateKeys () {
+    if (!explorerActionUrl) {
+      return
+    }
+    setStateLoading(true)
+    setStateError('')
+    setStateStatus('Loading keys…')
+    try {
+      const response = await actionWebInvoke(explorerActionUrl, {}, {
+        operation: 'state.list',
+        match: (stateMatch || '*').trim() || '*'
+      })
+      const body = response?.body || response || {}
+      const keys = body.keys || []
+      setStateKeys(Array.isArray(keys) ? keys : [])
+      const count = Array.isArray(keys) ? keys.length : 0
+      const namespace = body.namespace ? ` namespace: ${body.namespace}` : ''
+      setStateStatus(`Loaded ${count} keys.${namespace}`)
+    } catch (e) {
+      setStateError(e.message || 'Failed to load state keys.')
+      setStateStatus('')
+    } finally {
+      setStateLoading(false)
+    }
+  }
+
+  async function getStateValue (keyInput) {
+    const key = (keyInput || '').trim()
+    if (!key || !explorerActionUrl) {
+      return
+    }
+    setStateLoading(true)
+    setStateError('')
+    setStateStatus('Loading value…')
+    try {
+      const response = await actionWebInvoke(explorerActionUrl, {}, {
+        operation: 'state.get',
+        key
+      })
+      const body = response?.body || response || {}
+      setStateKey(key)
+      setStateValue(body.exists ? String(body.value || '') : '')
+      setStateValueMeta({
+        exists: !!body.exists,
+        expiration: body.expiration || null
+      })
+      setStateStatus(body.exists ? 'Key loaded.' : 'Key not found.')
+    } catch (e) {
+      setStateError(e.message || 'Failed to get state key.')
+      setStateStatus('')
+    } finally {
+      setStateLoading(false)
+    }
+  }
+
+  async function loadFilesList () {
+    if (!explorerActionUrl) {
+      return
+    }
+    setFilesLoading(true)
+    setFilesError('')
+    setFilesStatus('Loading files…')
+    try {
+      const response = await actionWebInvoke(explorerActionUrl, {}, {
+        operation: 'files.list',
+        prefix: (filesPrefix || '/').trim() || '/'
+      })
+      const body = response?.body || response || {}
+      const items = Array.isArray(body.items) ? body.items : []
+      setFilesItems(items)
+      setFilesStatus(`Loaded ${items.length} files from ${body.prefix || filesPrefix || '/'}.`)
+      if (!filesPath && items.length > 0) {
+        const first = items[0]?.name
+        if (first) {
+          setFilesPath(first)
+        }
+      }
+    } catch (e) {
+      setFilesError(e.message || 'Failed to list files.')
+      setFilesStatus('')
+    } finally {
+      setFilesLoading(false)
+    }
+  }
+
+  async function loadFileDetails (pathInput) {
+    const nextPath = (pathInput || '').trim()
+    if (!nextPath || !explorerActionUrl) {
+      return
+    }
+    setFilesLoading(true)
+    setFilesError('')
+    setFilesStatus('Loading file metadata…')
+    try {
+      const response = await actionWebInvoke(explorerActionUrl, {}, {
+        operation: 'files.getProperties',
+        filePath: nextPath
+      })
+      const body = response?.body || response || {}
+      setFilesPath(nextPath)
+      setFilesDetails(body.details || null)
+      setFilesStatus('File metadata loaded.')
+    } catch (e) {
+      setFilesError(e.message || 'Failed to load file metadata.')
+      setFilesStatus('')
+    } finally {
+      setFilesLoading(false)
+    }
+  }
+
 }
 
 export default DatabaseExplorer
