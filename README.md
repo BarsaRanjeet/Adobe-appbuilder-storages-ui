@@ -5,20 +5,16 @@ Welcome to my Adobe I/O Application!
 ## Setup
 
 - Populate the `.env` file in the project root and fill it as shown [below](#env)
+AIO_DB_REGION=<region>
 
 ## Local Dev
 
-- `aio app run` to start your local Dev server
+- `aio app dev` to start your local Dev server
 - App will run on `localhost:9080` by default
 
-By default the UI will be served locally but actions will be deployed and served from Adobe I/O Runtime. To run your actions locally use the `aio app dev` option.
+To partially deploy, `aio app run` the UI will be served locally but actions will be deployed and served from Adobe I/O Runtime.
 
 For more information on the difference between `aio app run` and `aio app dev`, see [here](https://developer.adobe.com/app-builder/docs/guides/development/#aio-app-dev-vs-aio-app-run)
-
-## Test & Coverage
-
-- Run `aio app test` to run unit tests for ui and actions
-- Run `aio app test --e2e` to run e2e tests
 
 ## Deploy & Cleanup
 
@@ -78,3 +74,6 @@ and make sure you have the below config added
     }
   } 
 ```
+## Note: as of now 27th March 2026, Two application running with aio app dev is not possible because aio app dev runs with live reload server and that conflicts the live reload server ports
+- You can run one application with `aio app run` and another with `aio app dev`
+![alt text](docs/image.png)
