@@ -66,8 +66,8 @@ function bootstrapInExcShell () {
   // set solution info, shortTitle is used when window is too small to display full title
   runtime.solution = {
     icon: 'AdobeExperienceCloud',
-    title: 'plytixintegration',
+    title: 'Adobe AppBuilder Storages Explorer (Database, State and Files)',
     shortTitle: 'JGR'
   }
-  runtime.title = 'plytixintegration'
+  runtime.title = 'Adobe AppBuilder Storages Explorer (Database, State and Files)'
 }

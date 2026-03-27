@@ -1,4 +1,4 @@
-# plytixintegration
+# Adobe AppBuilder Storages Explorer (Database, State and Files)
 
 Welcome to my Adobe I/O Application!
 
