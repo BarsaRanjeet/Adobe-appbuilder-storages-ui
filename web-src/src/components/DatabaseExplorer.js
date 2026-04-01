@@ -256,7 +256,7 @@ function DatabaseExplorer (props) {
               <Text>
                 Showing {documents.length}{totalCount ? ` of ${totalCount}` : ''} documents
               </Text>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Button
                   variant='secondary'
                   fillStyle='outline'
@@ -265,6 +265,12 @@ function DatabaseExplorer (props) {
                 >
                   Prev
                 </Button>
+                {parsedQuery.ok && parsedQuery.value && parsedQuery.value.limit > 0 && (
+                  <Text UNSAFE_style={{ fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    {Math.floor(parsedQuery.value.skip / parsedQuery.value.limit) + 1}
+                    {totalCount > 0 ? ` / ${Math.ceil(totalCount / parsedQuery.value.limit)}` : ''}
+                  </Text>
+                )}
                 <Button
                   variant='secondary'
                   fillStyle='outline'
