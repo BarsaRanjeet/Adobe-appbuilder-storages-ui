@@ -572,13 +572,13 @@ function DatabaseExplorer (props) {
     </div>
   )
 
-  async function runExplorerQuery () {
+  async function runExplorerQuery (queryOverride) {
     if (!explorerActionUrl) {
       setError('db-explorer action URL not found. Run/deploy app so config actions are generated.')
       return
     }
 
-    const parsed = safeParseJSON(queryInput)
+    const parsed = safeParseJSON(queryOverride || queryInput)
     if (!parsed.ok) {
       setError(parsed.error)
       return
@@ -630,8 +630,9 @@ function DatabaseExplorer (props) {
     const { limit, skip, ...rest } = controlled
     const nextSkip = Math.max(0, skip + (direction > 0 ? limit : -limit))
     const nextQuery = { ...rest, limit, skip: nextSkip }
-    setQueryInput(JSON.stringify(nextQuery))
-    setTimeout(() => runExplorerQuery(), 0)
+    const nextQueryStr = JSON.stringify(nextQuery)
+    setQueryInput(nextQueryStr)
+    runExplorerQuery(nextQueryStr)
   }
 
   function applyFindControls (query) {
